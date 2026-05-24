@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from html import escape
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
 
 COLORWAY = ["#00B3B3", "#D6B45F", "#E26D5C", "#74A4BC", "#9D8DF1", "#7FB069", "#F2A65A"]
+PERIL_COLORS = {
+    "Earthquake": "#74B9F2",
+    "Hurricane": "#0F74C9",
+    "Typhoon": "#F2A0A0",
+    "Severe Storm": "#F03A3A",
+    "Wildfire": "#75D68B",
+    "Flood": "#60D3D9",
+}
 
 
 def apply_workstation_theme(fig):
@@ -104,6 +114,165 @@ def live_event_map(feed: pd.DataFrame):
     fig.update_xaxes(range=[-180, 180], title="Longitude", dtick=45)
     fig.update_yaxes(range=[-60, 85], title="Latitude", dtick=20, scaleanchor="x", scaleratio=1)
     return apply_workstation_theme(fig)
+
+
+def live_event_map_html(feed: pd.DataFrame) -> str:
+    frame = feed.dropna(subset=["latitude", "longitude"]).copy()
+    if frame.empty:
+        points = (
+            '<div class="ca-map-empty">No geocoded catastrophe events available from the current feed.</div>'
+        )
+    else:
+        point_html = []
+        for _, row in frame.iterrows():
+            lon = float(row["longitude"])
+            lat = float(row["latitude"])
+            x = max(0, min(100, (lon + 180) / 360 * 100))
+            y = max(0, min(100, (85 - lat) / 145 * 100))
+            peril = str(row.get("peril", "Event"))
+            color = PERIL_COLORS.get(peril, "#18C4C7")
+            size = float(row.get("marker_size", 9) if pd.notna(row.get("marker_size", 9)) else 9)
+            size = max(9, min(22, size))
+            place = escape(str(row.get("place", "Unknown location")))
+            label = escape(peril)
+            point_html.append(
+                f"""
+                <div class="ca-map-point" title="{place} | {label}"
+                     style="left:{x:.2f}%; top:{y:.2f}%; width:{size:.1f}px; height:{size:.1f}px;
+                            background:{color}; box-shadow:0 0 16px {color};">
+                    <span>{label}</span>
+                </div>
+                """
+            )
+        points = "".join(point_html)
+
+    legend_items = "".join(
+        f'<span><i style="background:{color};"></i>{escape(peril)}</span>'
+        for peril, color in PERIL_COLORS.items()
+    )
+    return f"""
+    <style>
+    .ca-map-wrap {{
+        position: relative;
+        height: 520px;
+        border: 1px solid rgba(221,230,237,0.14);
+        border-radius: 4px;
+        overflow: hidden;
+        background:
+            linear-gradient(90deg, rgba(116,164,188,0.08) 0 41%, rgba(214,180,95,0.06) 41% 67%, rgba(24,196,199,0.07) 67% 100%),
+            linear-gradient(180deg, rgba(17,31,51,0.94), rgba(7,16,29,0.98));
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 12px 30px rgba(0,0,0,0.18);
+    }}
+    .ca-map-wrap::before {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(221,230,237,0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(221,230,237,0.08) 1px, transparent 1px);
+        background-size: 8.333% 13.793%;
+        opacity: 0.55;
+    }}
+    .ca-map-title {{
+        position: absolute;
+        left: 18px;
+        top: 16px;
+        z-index: 2;
+        color: #F5F7FA;
+        font-weight: 750;
+        font-size: 15px;
+    }}
+    .ca-map-subtitle {{
+        position: absolute;
+        left: 18px;
+        top: 42px;
+        z-index: 2;
+        color: #9AA7B8;
+        font-size: 12px;
+    }}
+    .ca-map-region {{
+        position: absolute;
+        top: 72px;
+        z-index: 1;
+        color: rgba(221,230,237,0.28);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }}
+    .ca-map-region.americas {{ left: 18%; }}
+    .ca-map-region.emea {{ left: 48%; }}
+    .ca-map-region.apac {{ left: 78%; }}
+    .ca-map-equator {{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 58.6%;
+        border-top: 1px dashed rgba(221,230,237,0.18);
+    }}
+    .ca-map-point {{
+        position: absolute;
+        z-index: 4;
+        transform: translate(-50%, -50%);
+        border: 2px solid #07101D;
+        border-radius: 50%;
+        cursor: default;
+    }}
+    .ca-map-point span {{
+        display: none;
+        position: absolute;
+        left: 14px;
+        top: -9px;
+        white-space: nowrap;
+        color: #F5F7FA;
+        background: rgba(7,16,29,0.94);
+        border: 1px solid rgba(221,230,237,0.18);
+        border-radius: 3px;
+        padding: 3px 6px;
+        font-size: 11px;
+    }}
+    .ca-map-point:hover span {{ display: block; }}
+    .ca-map-legend {{
+        position: absolute;
+        left: 18px;
+        bottom: 14px;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        color: #DDE6ED;
+        font-size: 12px;
+    }}
+    .ca-map-legend span {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }}
+    .ca-map-legend i {{
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+    }}
+    .ca-map-empty {{
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #DDE6ED;
+        z-index: 3;
+    }}
+    </style>
+    <div class="ca-map-wrap">
+        <div class="ca-map-title">Live Catastrophe Feed</div>
+        <div class="ca-map-subtitle">Deployment-safe global coordinate map: longitude -180 to 180, latitude -60 to 85</div>
+        <div class="ca-map-region americas">Americas</div>
+        <div class="ca-map-region emea">Europe / Africa</div>
+        <div class="ca-map-region apac">Asia-Pacific</div>
+        <div class="ca-map-equator"></div>
+        {points}
+        <div class="ca-map-legend">{legend_items}</div>
+    </div>
+    """
 
 
 def peril_mix_bar(portfolio: pd.DataFrame):

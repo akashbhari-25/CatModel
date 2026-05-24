@@ -19,7 +19,7 @@ from cat_alpha.data.exposure_data import default_exposure_portfolio, exposure_su
 from cat_alpha.data.live_feed import fetch_live_catastrophe_feed
 from cat_alpha.visualization.plots import (
     exposure_bar,
-    live_event_map,
+    live_event_map_html,
     loss_distribution,
     peril_mix_bar,
     regional_tail_bar,
@@ -464,7 +464,7 @@ with tabs[0]:
     model_note("Use this view as the daily monitoring layer: identify active natural catastrophes, then move material events into stress testing.")
     left, right = st.columns([1.45, 0.8])
     with left:
-        st.plotly_chart(live_event_map(feed), use_container_width=True)
+        st.markdown(live_event_map_html(feed), unsafe_allow_html=True)
         st.dataframe(feed, use_container_width=True, hide_index=True)
     with right:
         underwriting_ruling(
