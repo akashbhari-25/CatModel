@@ -60,17 +60,9 @@ def live_event_map(feed: pd.DataFrame):
             showarrow=False,
             font={"color": "#DDE6ED", "size": 14},
         )
-        fig.update_geos(
-            projection_type="equirectangular",
-            showland=True,
-            showocean=True,
-            landcolor="#172235",
-            oceancolor="#0B1220",
-            coastlinecolor="rgba(221,230,237,0.25)",
-            lataxis_range=[-60, 80],
-            lonaxis_range=[-180, 180],
-        )
         fig.update_layout(title="Live Catastrophe Feed", height=520)
+        fig.update_xaxes(range=[-180, 180], title="Longitude")
+        fig.update_yaxes(range=[-60, 85], title="Latitude")
         return apply_workstation_theme(fig)
 
     frame["marker_size"] = 8.0
@@ -86,10 +78,10 @@ def live_event_map(feed: pd.DataFrame):
         frame.loc[frame["frp"].notna(), "marker_size"] = (
             frame.loc[frame["frp"].notna(), "frp"].astype(float).clip(lower=10.0) / 8.0
         )
-    fig = px.scatter_geo(
+    fig = px.scatter(
         frame,
-        lat="latitude",
-        lon="longitude",
+        x="longitude",
+        y="latitude",
         color="peril",
         size="marker_size",
         hover_name="place",
@@ -98,28 +90,19 @@ def live_event_map(feed: pd.DataFrame):
             "longitude": ":.2f",
             "marker_size": False,
         },
-        title="Live Catastrophe Feed",
-        projection="equirectangular",
+        title="Live Catastrophe Feed - Global Coordinate Map",
     )
     fig.update_traces(marker={"line": {"width": 0.8, "color": "#07101D"}, "opacity": 0.88})
-    fig.update_geos(
-        bgcolor="rgba(0,0,0,0)",
-        landcolor="#172235",
-        lakecolor="#0B1220",
-        oceancolor="#0B1220",
-        coastlinecolor="rgba(221,230,237,0.35)",
-        countrycolor="rgba(221,230,237,0.14)",
-        subunitcolor="rgba(221,230,237,0.10)",
-        coastlinewidth=0.7,
-        showcountries=True,
-        showocean=True,
-        showland=True,
-        showlakes=True,
-        lataxis_range=[-60, 80],
-        lonaxis_range=[-180, 180],
-        resolution=110,
-    )
-    fig.update_layout(height=520, geo={"domain": {"x": [0, 1], "y": [0, 1]}})
+    fig.add_vrect(x0=-170, x1=-30, fillcolor="rgba(116,164,188,0.055)", line_width=0)
+    fig.add_vrect(x0=-20, x1=60, fillcolor="rgba(214,180,95,0.045)", line_width=0)
+    fig.add_vrect(x0=60, x1=150, fillcolor="rgba(24,196,199,0.045)", line_width=0)
+    fig.add_hrect(y0=-45, y1=65, fillcolor="rgba(255,255,255,0.018)", line_width=0)
+    fig.add_annotation(text="Americas", x=-100, y=78, showarrow=False, font={"color": "#65758A", "size": 11})
+    fig.add_annotation(text="Europe / Africa", x=20, y=78, showarrow=False, font={"color": "#65758A", "size": 11})
+    fig.add_annotation(text="Asia-Pacific", x=105, y=78, showarrow=False, font={"color": "#65758A", "size": 11})
+    fig.update_layout(height=520)
+    fig.update_xaxes(range=[-180, 180], title="Longitude", dtick=45)
+    fig.update_yaxes(range=[-60, 85], title="Latitude", dtick=20, scaleanchor="x", scaleratio=1)
     return apply_workstation_theme(fig)
 
 
