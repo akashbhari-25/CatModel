@@ -246,6 +246,37 @@ st.markdown(
     .ca-ruling strong {
         color: var(--ca-text);
     }
+    .ca-map-key {
+        display: grid;
+        gap: 10px;
+    }
+    .ca-map-key-row {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 9px;
+        align-items: start;
+        color: #DDE6ED;
+        font-size: 0.86rem;
+    }
+    .ca-map-key-row span {
+        color: #9AA7B8;
+        font-size: 0.80rem;
+    }
+    .ca-map-key-dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        border: 2px solid #07101D;
+        margin-top: 3px;
+        display: inline-block;
+    }
+    .ca-map-key-note {
+        color: #9AA7B8;
+        border-top: 1px solid var(--ca-border);
+        margin-top: 11px;
+        padding-top: 10px;
+        font-size: 0.82rem;
+    }
     div[data-testid="stDataFrame"] {
         border: 1px solid var(--ca-border);
         border-radius: 4px;
@@ -369,6 +400,57 @@ def underwriting_ruling(title: str, verdict: str, rationale: str) -> None:
     )
 
 
+def map_explanation(feed: pd.DataFrame) -> None:
+    rows = [
+        ("Earthquake", "#74B9F2", "blue marker; size scales with magnitude"),
+        ("Hurricane", "#0F74C9", "dark blue marker; size scales with wind speed"),
+        ("Typhoon", "#F2A0A0", "pink marker; tropical cyclone exposure"),
+        ("Severe Storm", "#F03A3A", "red marker; convective storm / surge watch"),
+        ("Wildfire", "#75D68B", "green marker; size scales with fire radiative power"),
+        ("Flood", "#60D3D9", "cyan marker; flood event watch"),
+    ]
+    body = "".join(
+        f"""
+        <div class="ca-map-key-row">
+            <span class="ca-map-key-dot" style="background:{color}; box-shadow:0 0 10px {color};"></span>
+            <div><strong>{label}</strong><br/><span>{detail}</span></div>
+        </div>
+        """
+        for label, color, detail in rows
+    )
+    event_count = len(feed.dropna(subset=["latitude", "longitude"]))
+    st.markdown(
+        f"""
+        <div class="ca-panel">
+            <div class="ca-panel-title">Marker Guide</div>
+            <div class="ca-map-key">{body}</div>
+            <div class="ca-map-key-note">
+                {event_count} geocoded live events plotted. Hover over any marker for peril, place, latitude, and longitude.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def event_watchlist(feed: pd.DataFrame) -> pd.DataFrame:
+    frame = feed.copy()
+    score = pd.Series(1.0, index=frame.index)
+    if "magnitude" in frame:
+        score = score.where(frame["magnitude"].isna(), frame["magnitude"].astype(float) * 10.0)
+    if "wind_speed_mph" in frame:
+        score = score.where(frame["wind_speed_mph"].isna(), frame["wind_speed_mph"].astype(float))
+    if "frp" in frame:
+        score = score.where(frame["frp"].isna(), frame["frp"].astype(float))
+    frame["watch_score"] = score
+    cols = [
+        col
+        for col in ["peril", "place", "magnitude", "wind_speed_mph", "frp", "latitude", "longitude"]
+        if col in frame
+    ]
+    return frame.sort_values("watch_score", ascending=False)[cols].head(8)
+
+
 st.markdown(
     """
     <div class="ca-header">
@@ -478,7 +560,9 @@ with tabs[0]:
             "Review active perils against top exposed zones",
             "A live event is only decision-relevant when it intersects exposure, contract attachment, and plausible severity.",
         )
+        map_explanation(feed)
         insight_panel("Desk Readout", live_feed_insights(feed))
+        st.dataframe(event_watchlist(feed), use_container_width=True, hide_index=True)
 
 with tabs[1]:
     section_header("Exposure Portfolio", "Book composition")
