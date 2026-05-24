@@ -5,6 +5,7 @@ from html import escape
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
 
 
 COLORWAY = ["#00B3B3", "#D6B45F", "#E26D5C", "#74A4BC", "#9D8DF1", "#7FB069", "#F2A65A"]
@@ -15,6 +16,14 @@ PERIL_COLORS = {
     "Severe Storm": "#F03A3A",
     "Wildfire": "#75D68B",
     "Flood": "#60D3D9",
+}
+PERIL_RGB = {
+    "Earthquake": [116, 185, 242, 220],
+    "Hurricane": [15, 116, 201, 220],
+    "Typhoon": [242, 160, 160, 220],
+    "Severe Storm": [240, 58, 58, 230],
+    "Wildfire": [117, 214, 139, 230],
+    "Flood": [96, 211, 217, 220],
 }
 
 
@@ -182,6 +191,91 @@ def live_event_map_html(feed: pd.DataFrame) -> str:
         </g>
     </svg>
     """
+
+
+def live_event_deck(feed: pd.DataFrame) -> pdk.Deck:
+    frame = feed.dropna(subset=["latitude", "longitude"]).copy()
+    if frame.empty:
+        frame = pd.DataFrame(
+            [
+                {
+                    "latitude": 20.0,
+                    "longitude": 0.0,
+                    "peril": "No Events",
+                    "place": "No geocoded live events available",
+                    "radius_m": 350_000,
+                    "color": [154, 167, 184, 140],
+                }
+            ]
+        )
+    else:
+        frame["peril"] = frame["peril"].fillna("Event")
+        frame["place"] = frame["place"].fillna("Unknown location")
+        frame["color"] = frame["peril"].map(PERIL_RGB).apply(
+            lambda value: value if isinstance(value, list) else [24, 196, 199, 220]
+        )
+        frame["radius_m"] = 180_000
+        if "magnitude" in frame:
+            quake_mask = frame["magnitude"].notna()
+            frame.loc[quake_mask, "radius_m"] = (
+                frame.loc[quake_mask, "magnitude"].astype(float).clip(lower=4.0, upper=8.5) * 55_000
+            )
+        if "wind_speed_mph" in frame:
+            storm_mask = frame["wind_speed_mph"].notna()
+            frame.loc[storm_mask, "radius_m"] = (
+                frame.loc[storm_mask, "wind_speed_mph"].astype(float).clip(lower=35.0, upper=160.0) * 3_200
+            )
+        if "frp" in frame:
+            fire_mask = frame["frp"].notna()
+            frame.loc[fire_mask, "radius_m"] = (
+                frame.loc[fire_mask, "frp"].astype(float).clip(lower=20.0, upper=160.0) * 3_200
+            )
+
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=frame,
+        get_position="[longitude, latitude]",
+        get_fill_color="color",
+        get_radius="radius_m",
+        get_line_color=[7, 16, 29, 255],
+        line_width_min_pixels=1.5,
+        opacity=0.88,
+        pickable=True,
+        stroked=True,
+        radius_min_pixels=5,
+        radius_max_pixels=28,
+    )
+    glow_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=frame,
+        get_position="[longitude, latitude]",
+        get_fill_color="[80, 180, 255, 42]",
+        get_radius="radius_m * 2.4",
+        opacity=0.35,
+        pickable=False,
+        radius_min_pixels=12,
+        radius_max_pixels=54,
+    )
+    view_state = pdk.ViewState(latitude=14, longitude=15, zoom=1.15, pitch=0, bearing=0)
+    return pdk.Deck(
+        layers=[glow_layer, layer],
+        initial_view_state=view_state,
+        map_style="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+        tooltip={
+            "html": (
+                "<b>{peril}</b><br/>"
+                "{place}<br/>"
+                "Lat: {latitude}<br/>"
+                "Lon: {longitude}"
+            ),
+            "style": {
+                "backgroundColor": "#07101D",
+                "color": "#F5F7FA",
+                "border": "1px solid rgba(221,230,237,0.25)",
+                "fontFamily": "Inter, Segoe UI, sans-serif",
+            },
+        },
+    )
     return f"""
     <style>
     .ca-map-wrap {{

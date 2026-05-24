@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 from cat_alpha.analytics.clustering import cluster_regions
 from cat_alpha.analytics.insights import (
@@ -20,7 +19,7 @@ from cat_alpha.data.exposure_data import default_exposure_portfolio, exposure_su
 from cat_alpha.data.live_feed import fetch_live_catastrophe_feed
 from cat_alpha.visualization.plots import (
     exposure_bar,
-    live_event_map_html,
+    live_event_deck,
     loss_distribution,
     peril_mix_bar,
     regional_tail_bar,
@@ -465,7 +464,7 @@ with tabs[0]:
     model_note("Use this view as the daily monitoring layer: identify active natural catastrophes, then move material events into stress testing.")
     left, right = st.columns([1.45, 0.8])
     with left:
-        components.html(live_event_map_html(feed), height=540, scrolling=False)
+        st.pydeck_chart(live_event_deck(feed), height=560, use_container_width=True)
         st.dataframe(feed, use_container_width=True, hide_index=True)
     with right:
         underwriting_ruling(
