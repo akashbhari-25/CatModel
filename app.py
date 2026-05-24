@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from cat_alpha.analytics.clustering import cluster_regions
 from cat_alpha.analytics.insights import (
@@ -464,7 +465,7 @@ with tabs[0]:
     model_note("Use this view as the daily monitoring layer: identify active natural catastrophes, then move material events into stress testing.")
     left, right = st.columns([1.45, 0.8])
     with left:
-        st.markdown(live_event_map_html(feed), unsafe_allow_html=True)
+        components.html(live_event_map_html(feed), height=540, scrolling=False)
         st.dataframe(feed, use_container_width=True, hide_index=True)
     with right:
         underwriting_ruling(
