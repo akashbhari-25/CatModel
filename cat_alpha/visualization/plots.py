@@ -203,7 +203,7 @@ def live_event_deck(feed: pd.DataFrame) -> pdk.Deck:
                     "longitude": 0.0,
                     "peril": "No Events",
                     "place": "No geocoded live events available",
-                    "radius_m": 350_000,
+                    "radius_m": 350_000.0,
                     "color": [154, 167, 184, 140],
                 }
             ]
@@ -214,22 +214,20 @@ def live_event_deck(feed: pd.DataFrame) -> pdk.Deck:
         frame["color"] = frame["peril"].map(PERIL_RGB).apply(
             lambda value: value if isinstance(value, list) else [24, 196, 199, 220]
         )
-        frame["radius_m"] = 180_000
+        frame["radius_m"] = 180_000.0
         if "magnitude" in frame:
             quake_mask = frame["magnitude"].notna()
-            frame.loc[quake_mask, "radius_m"] = (
-                frame.loc[quake_mask, "magnitude"].astype(float).clip(lower=4.0, upper=8.5) * 55_000
-            )
+            quake_radius = frame.loc[quake_mask, "magnitude"].astype(float).clip(lower=4.0, upper=8.5) * 55_000.0
+            frame.loc[quake_mask, "radius_m"] = quake_radius.to_numpy(dtype=float)
         if "wind_speed_mph" in frame:
             storm_mask = frame["wind_speed_mph"].notna()
-            frame.loc[storm_mask, "radius_m"] = (
-                frame.loc[storm_mask, "wind_speed_mph"].astype(float).clip(lower=35.0, upper=160.0) * 3_200
-            )
+            storm_radius = frame.loc[storm_mask, "wind_speed_mph"].astype(float).clip(lower=35.0, upper=160.0) * 3_200.0
+            frame.loc[storm_mask, "radius_m"] = storm_radius.to_numpy(dtype=float)
         if "frp" in frame:
             fire_mask = frame["frp"].notna()
-            frame.loc[fire_mask, "radius_m"] = (
-                frame.loc[fire_mask, "frp"].astype(float).clip(lower=20.0, upper=160.0) * 3_200
-            )
+            fire_radius = frame.loc[fire_mask, "frp"].astype(float).clip(lower=20.0, upper=160.0) * 3_200.0
+            frame.loc[fire_mask, "radius_m"] = fire_radius.to_numpy(dtype=float)
+        frame["radius_m"] = frame["radius_m"].astype(float)
 
     layer = pdk.Layer(
         "ScatterplotLayer",
