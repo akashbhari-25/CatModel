@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 COLORWAY = ["#00B3B3", "#D6B45F", "#E26D5C", "#74A4BC", "#9D8DF1", "#7FB069", "#F2A65A"]
@@ -48,6 +49,30 @@ def exposure_bar(portfolio: pd.DataFrame):
 
 def live_event_map(feed: pd.DataFrame):
     frame = feed.dropna(subset=["latitude", "longitude"]).copy()
+    if frame.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No geocoded catastrophe events available",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            font={"color": "#DDE6ED", "size": 14},
+        )
+        fig.update_geos(
+            projection_type="equirectangular",
+            showland=True,
+            showocean=True,
+            landcolor="#172235",
+            oceancolor="#0B1220",
+            coastlinecolor="rgba(221,230,237,0.25)",
+            lataxis_range=[-60, 80],
+            lonaxis_range=[-180, 180],
+        )
+        fig.update_layout(title="Live Catastrophe Feed", height=520)
+        return apply_workstation_theme(fig)
+
     frame["marker_size"] = 8.0
     if "magnitude" in frame:
         frame.loc[frame["magnitude"].notna(), "marker_size"] = (
@@ -68,17 +93,33 @@ def live_event_map(feed: pd.DataFrame):
         color="peril",
         size="marker_size",
         hover_name="place",
+        hover_data={
+            "latitude": ":.2f",
+            "longitude": ":.2f",
+            "marker_size": False,
+        },
         title="Live Catastrophe Feed",
+        projection="equirectangular",
     )
+    fig.update_traces(marker={"line": {"width": 0.8, "color": "#07101D"}, "opacity": 0.88})
     fig.update_geos(
         bgcolor="rgba(0,0,0,0)",
         landcolor="#172235",
         lakecolor="#0B1220",
         oceancolor="#0B1220",
-        coastlinecolor="rgba(221,230,237,0.25)",
+        coastlinecolor="rgba(221,230,237,0.35)",
+        countrycolor="rgba(221,230,237,0.14)",
+        subunitcolor="rgba(221,230,237,0.10)",
+        coastlinewidth=0.7,
+        showcountries=True,
         showocean=True,
         showland=True,
+        showlakes=True,
+        lataxis_range=[-60, 80],
+        lonaxis_range=[-180, 180],
+        resolution=110,
     )
+    fig.update_layout(height=520, geo={"domain": {"x": [0, 1], "y": [0, 1]}})
     return apply_workstation_theme(fig)
 
 
